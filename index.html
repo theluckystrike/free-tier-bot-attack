@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of a Free-Tier Bot Attack</title>
+<meta name="description" content="How a solo SaaS got farmed for free AI compute by a bot, how the real attack door was traced through a payment processor, and the seven checks that keep it from happening to you.">
+<meta property="og:title" content="Anatomy of a Free-Tier Bot Attack">
+<meta property="og:description" content="A real security field report. Hundreds of fake accounts, zero cards, one forgotten public link, traced and shut down in under a day.">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0f14;
+    --surface:#161922;
+    --surface-2:#1b1f29;
+    --text:#e9e7e1;
+    --muted:#9c9a93;
+    --faint:#6f6e68;
+    --border:#262a35;
+    --accent:#f0a23c;
+    --accent-soft:rgba(240,162,60,.12);
+    --ok:#57c08a;
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+    --display:'Space Grotesk',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:var(--sans);font-size:17px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:0 22px}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:border-color .15s}
+  a:hover{border-color:var(--accent)}
+  ::selection{background:var(--accent-soft);color:#fff}
+
+  /* top bar */
+  .bar{border-bottom:1px solid var(--border)}
+  .bar .wrap{display:flex;justify-content:space-between;align-items:center;height:54px}
+  .brand{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .brand b{color:var(--text);font-weight:500}
+  .bar .date{font-family:var(--mono);font-size:.72rem;color:var(--faint);letter-spacing:.06em}
+
+  /* hero */
+  header.hero{padding:64px 0 8px}
+  .eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin:0 0 22px}
+  h1{
+    font-family:var(--display);font-weight:600;letter-spacing:-.022em;
+    font-size:clamp(2.4rem,7.5vw,4.1rem);line-height:1.04;margin:0 0 20px;
+  }
+  .lede{font-size:1.18rem;line-height:1.6;color:var(--muted);max-width:62ch;margin:0 0 30px}
+  .byline{font-family:var(--mono);font-size:.78rem;color:var(--faint);letter-spacing:.04em;border-top:1px solid var(--border);padding-top:18px}
+
+  /* stat strip */
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:40px 0 8px}
+  .stat{background:var(--surface);padding:22px 20px}
+  .stat .n{font-family:var(--mono);font-weight:500;font-size:clamp(1.9rem,6vw,2.6rem);color:var(--accent);line-height:1;letter-spacing:-.01em}
+  .stat .l{font-size:.86rem;color:var(--muted);margin-top:10px;line-height:1.45}
+
+  /* sections */
+  section{padding:50px 0}
+  .num{font-family:var(--mono);font-size:.8rem;color:var(--accent);letter-spacing:.1em;display:block;margin-bottom:14px}
+  h2{font-family:var(--display);font-weight:600;letter-spacing:-.012em;font-size:clamp(1.5rem,4.2vw,2.05rem);line-height:1.15;margin:0 0 18px}
+  h3{font-family:var(--display);font-weight:600;font-size:1.18rem;margin:34px 0 10px;color:var(--text)}
+  p{margin:0 0 18px;max-width:68ch}
+  strong{color:#fff;font-weight:600}
+  code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:#d7d4cc}
+
+  /* short version card */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 24px}
+  .card.short{border-left:3px solid var(--accent)}
+  .card.short h2{margin-top:0;font-size:1.3rem}
+  .card.short p:last-child{margin-bottom:0}
+
+  /* pull quote */
+  .pull{margin:46px 0;padding:8px 0 8px 26px;border-left:3px solid var(--accent)}
+  .pull p{font-family:var(--display);font-weight:500;font-size:clamp(1.35rem,4.5vw,1.8rem);line-height:1.3;color:#fff;letter-spacing:-.01em;margin:0;max-width:24ch}
+
+  /* timeline */
+  .tl{list-style:none;margin:24px 0 0;padding:0}
+  .tl li{position:relative;padding:0 0 22px 30px;border-left:1px solid var(--border);margin-left:6px}
+  .tl li:last-child{border-left-color:transparent;padding-bottom:0}
+  .tl li::before{content:"";position:absolute;left:-5px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .tl .t{font-family:var(--mono);font-size:.76rem;color:var(--faint);letter-spacing:.05em;display:block;margin-bottom:3px}
+  .tl b{color:var(--text);font-weight:600}
+
+  /* checklist (the takeaway) */
+  .checks{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 24px;margin-top:8px;counter-reset:c}
+  .checks .row{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--border)}
+  .checks .row:last-child{border-bottom:0}
+  .checks .row .idx{counter-increment:c;font-family:var(--mono);font-size:.82rem;color:var(--accent);flex:0 0 auto;width:24px;padding-top:2px}
+  .checks .row .idx::before{content:counter(c,decimal-leading-zero)}
+  .checks .row .b{font-weight:600;color:#fff;display:block;margin-bottom:3px;font-size:1.02rem}
+  .checks .row .d{color:var(--muted);font-size:.95rem;line-height:1.55}
+
+  /* resolution ticks */
+  .done{list-style:none;margin:20px 0 0;padding:0}
+  .done li{position:relative;padding:0 0 12px 30px;color:var(--muted)}
+  .done li svg{position:absolute;left:0;top:4px;width:18px;height:18px}
+  .done li b{color:var(--text);font-weight:600}
+
+  /* footer */
+  footer{border-top:1px solid var(--border);margin-top:30px;padding:40px 0 70px}
+  footer p{color:var(--faint);font-size:.9rem;max-width:66ch}
+  footer .sig{font-family:var(--mono);font-size:.76rem;letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
+
+  @media(min-width:680px){
+    .stats{grid-template-columns:repeat(4,1fr)}
+    .wrap{padding:0 28px}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar"><div class="wrap">
+  <span class="brand"><b>Security</b> field report</span>
+  <span class="date">2026-06-27</span>
+</div></div>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Incident teardown</p>
+  <h1>Anatomy of a Free-Tier Bot Attack</h1>
+  <p class="lede">A working SaaS woke up to hundreds of fake customers and no idea why. No stolen cards, no breached server, no ransom note. Here is what the bot was actually after, where the real door was hiding, and the short checklist that would have closed it on day one.</p>
+  <p class="byline">Written from a live production incident. Names and customer data anonymized. Every command, number, and timeline below comes from the real event.</p>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="n">~392</div><div class="l">fake customers created in a single burst</div></div>
+  <div class="stat"><div class="n">0</div><div class="l">payment cards touched, so not card testing</div></div>
+  <div class="stat"><div class="n">1</div><div class="l">forgotten public link that was the whole attack surface</div></div>
+  <div class="stat"><div class="n">&lt;1 day</div><div class="l">from "what is this" to fully stopped</div></div>
+</div>
+
+<section>
+  <div class="card short">
+    <h2>The short version</h2>
+    <p>An automated script pointed itself at a small product and started minting accounts, roughly one a minute. The accounts were synthetic, generated by a common identity library, and not one of them ever paid. The goal was the free tier. Every free account is a small renewable bucket of premium AI calls, and a thousand of them is a free model farm running on someone else's bill.</p>
+    <p>The first instinct was to harden the signup form. That was the wrong door. The bot never touched it. The real entry point was a public payment link that had been forgotten in plain sight. One setting turned it off and the flood stopped at the source.</p>
+  </div>
+</section>
+
+<section>
+  <span class="num">01</span>
+  <h2>The bait was the free tier</h2>
+  <p>Most people assume a wave of fake accounts means stolen credit cards being tested. This was the opposite. No cards appeared anywhere. That single fact reframes the whole event. Card testing wants your payment rails. This attacker wanted your product.</p>
+  <p>The product gives every free account a few premium AI generations a day. Useful for a real person, and quietly valuable at scale. Pool a thousand free accounts and you have a renewable supply of model access that someone else pays for. That is the entire business model of a quota farm, and small tools with a generous free tier are the perfect host.</p>
+  <p>The identities gave it away. Every email followed the same shape, a first name, a dot, a last name, two to four digits, at one of three big providers. The street addresses were real metros with believable postal codes. It was clean enough to pass a careless glance and patterned enough to fingerprint in one query.</p>
+</section>
+
+<section>
+  <span class="num">02</span>
+  <h2>The break-in that never happened</h2>
+  <p>The early hours went into the obvious place. Add a challenge to the signup form. Block requests that arrive without the right browser origin. Log the real client address on every rejection. All sensible, all shipped.</p>
+  <p>Then the numbers refused to agree. The application database held a handful of new users since the attack began. The payment processor showed hundreds of new customers over the same window, and the exact fake emails from the dashboard were nowhere in the database. The two systems were describing different events.</p>
+  <p>That gap was the real clue. If the fake customers were not being created through the application, then the signup form was a wall built across an open field. The attacker was walking in somewhere else entirely.</p>
+  <div class="pull"><p>Before you defend a door, prove the attacker is using it.</p></div>
+</section>
+
+<section>
+  <span class="num">03</span>
+  <h2>The real door was a payment link</h2>
+  <p>Using the backend's own payment key, the next question was simple. How was each fake customer actually born? Every one traced back to a single open, unpaid checkout session from one public payment link, an old one dollar trial that had been live for months and quietly forgotten.</p>
+  <p>The mechanism needs no login and no server call. Open the hosted link, type any address, and the payment processor creates a customer record before a card is ever entered. Abandon the page and the synthetic customer stays behind. The empty customer metadata, the detail that looked like noise early on, was the signature. A customer born from a hosted link carries none of the application's own fields.</p>
+  <p>The fix was one call. Deactivate the link. The bot kept knocking on a dead door and created nothing further. A fresh trial link took its place for real buyers.</p>
+</section>
+
+<section>
+  <span class="num">04</span>
+  <h2>Shutting it down</h2>
+  <ul class="tl">
+    <li><span class="t">Hour 0</span><b>Diagnosis.</b> Confirmed synthetic identities, zero cards, free-tier farming rather than card testing.</li>
+    <li><span class="t">Hours 1 to 4</span><b>The wrong door, hardened anyway.</b> Challenge plus origin rules added to signup. Useful for the future, not the live vector.</li>
+    <li><span class="t">Hour 5</span><b>The data split.</b> Database and processor disagreed. The attacker was not using the application.</li>
+    <li><span class="t">Hour 6</span><b>The reveal.</b> A forgotten public payment link was the source. Deactivated in one call.</li>
+    <li><span class="t">Same day</span><b>Cleanup and watch.</b> Fake records purged with a safe filter that skipped anyone who had ever paid. A monitor armed to catch a pivot.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="num">05</span>
+  <h2>Hardening what was left</h2>
+  <p>Killing the link ended the wave, but a good response closes the class of hole, not only the one instance. A full inventory of every public link turned up two more low value ones still live. The dormant one was retired. The one with real paying customers behind it stayed, because closing a revenue path to feel safer is its own kind of damage.</p>
+  <p>The signup challenge and the origin rule stayed in place too. Neither stopped this particular bot, but both close real holes the next one would try, and the new request logging means the next wave arrives visible instead of invisible.</p>
+  <p>One more quiet win came out of it. The attack exposed how much pointless traffic the fragile origin was absorbing, roughly a hundred and forty thousand dead authentication checks a day from logged out clients. Moving that rejection to the edge of the stack, before it reaches the application, took the load off the box and steadied it. An incident is also a free audit.</p>
+  <ul class="done">
+    <li><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#57c08a" stroke-width="1.5"/><path d="M6 10.2l2.6 2.6L14 7.5" stroke="#57c08a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>The abused link is deactivated, with no resurgence in the days since.</li>
+    <li><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#57c08a" stroke-width="1.5"/><path d="M6 10.2l2.6 2.6L14 7.5" stroke="#57c08a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Synthetic customers were purged and the real ones were never touched.</li>
+    <li><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#57c08a" stroke-width="1.5"/><path d="M6 10.2l2.6 2.6L14 7.5" stroke="#57c08a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Every public link is inventoried and the dormant ones are retired.</li>
+    <li><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#57c08a" stroke-width="1.5"/><path d="M6 10.2l2.6 2.6L14 7.5" stroke="#57c08a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Dead traffic is shed at the edge while real users pass through untouched.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="num">06</span>
+  <h2>What an attack like this actually costs</h2>
+  <p>There was no dramatic loss here, and that is the point. The damage from free-tier farming is quiet. It shows up as a model bill that creeps upward, as transactional emails burning sender reputation on inboxes that will never open them, as a customer count that no longer means anything, and as a fragile server flapping under junk load while real users wait.</p>
+  <p>None of it trips an alarm. A founder can run a farm like this for weeks and only notice when a provider invoice looks wrong. The cheapest version of this story is the one where you find the open door before someone else does.</p>
+</section>
+
+<section>
+  <span class="num">07</span>
+  <h2>Secure your business in seven checks</h2>
+  <p>This was a small company with a generous free tier and one forgotten setting. The same shape fits a lot of products. Run these before you need them.</p>
+  <div class="checks">
+    <div class="row"><span class="idx"></span><div><span class="b">Inventory every public link that can create a record</span><span class="d">Payment links, hosted checkouts, open forms. Anything that mints a customer or a user without a login is attack surface. List them and keep only the ones real money flows through.</span></div></div>
+    <div class="row"><span class="idx"></span><div><span class="b">Ask your processor how each record was created</span><span class="d">When fake accounts appear, the fastest answer often lives in the payment dashboard, not the application logs. Trace the creation path before you harden anything.</span></div></div>
+    <div class="row"><span class="idx"></span><div><span class="b">Verify the email before the product does any real work</span><span class="d">If a free account can spend compute before its inbox is confirmed, a synthetic inbox never needs to receive anything. Gate the expensive action on a verified address.</span></div></div>
+    <div class="row"><span class="idx"></span><div><span class="b">Put a real challenge on the front door</span><span class="d">A lightweight bot challenge on signup stops the lazy automation that rotates addresses to beat simple rate limits. It will not catch every vector, but it raises the floor.</span></div></div>
+    <div class="row"><span class="idx"></span><div><span class="b">Log the real client address on every signup and rejection</span><span class="d">You cannot investigate what you did not record. The next wave should arrive visible. Capture the source on day one, not after the attack.</span></div></div>
+    <div class="row"><span class="idx"></span><div><span class="b">Cap what a single free account can consume</span><span class="d">A daily and monthly ceiling on the expensive feature turns a thousand farmed accounts from a real bill into a rounding error.</span></div></div>
+    <div class="row"><span class="idx"></span><div><span class="b">Shed junk traffic before it reaches the application</span><span class="d">Reject obvious dead requests at the edge or the proxy, ahead of your app server. Cheap to do, and it keeps a small box standing under load it was never sized for.</span></div></div>
+  </div>
+</section>
+
+</div>
+
+<footer><div class="wrap">
+  <p class="sig">End of report</p>
+  <p>A live incident field report. The dates, the command paths, and the numbers come from a real production event during an active attack. Customer identities and the company are anonymized. Reuse any of it under your own judgment and swap in your own thresholds. Nothing here is legal advice, only what worked and what did not.</p>
+</div></footer>
+
+</body>
+</html>
