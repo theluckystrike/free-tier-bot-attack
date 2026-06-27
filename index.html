@@ -109,8 +109,22 @@
   footer p{color:var(--faint);font-size:.9rem;max-width:66ch}
   footer .sig{font-family:var(--mono);font-size:.76rem;letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
 
+  /* exhibit (framed screenshot) */
+  .exhibit{margin:32px 0 6px}
+  .frame{background:#f4f5f7;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 22px 60px -26px rgba(0,0,0,.7)}
+  .frame .chrome{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#e8e9ee;border-bottom:1px solid #d7d9e0}
+  .frame .chrome i{width:10px;height:10px;border-radius:50%;background:#c7cad2;display:inline-block}
+  .frame .chrome .u{margin-left:12px;font-family:var(--mono);font-size:.72rem;color:#646874;letter-spacing:.02em}
+  .frame img{display:block;width:100%;height:auto}
+  .cap{font-family:var(--mono);font-size:.77rem;color:var(--faint);margin:13px 2px 0;line-height:1.55;letter-spacing:.01em;max-width:64ch}
+  /* validated facts */
+  .facts{display:grid;grid-template-columns:1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:26px}
+  .fact{background:var(--surface);padding:18px 20px}
+  .fact .v{font-family:var(--mono);font-weight:500;color:var(--accent);font-size:1.02rem;display:block;margin-bottom:7px;letter-spacing:-.01em}
+  .fact .k{color:var(--muted);font-size:.94rem;line-height:1.55}
   @media(min-width:680px){
     .stats{grid-template-columns:repeat(4,1fr)}
+    .facts{grid-template-columns:1fr 1fr}
     .wrap{padding:0 28px}
   }
 </style>
@@ -152,6 +166,30 @@
   <p>Most people assume a wave of fake accounts means stolen credit cards being tested. This was the opposite. No cards appeared anywhere. That single fact reframes the whole event. Card testing wants your payment rails. This attacker wanted your product.</p>
   <p>The product gives every free account a few premium AI generations a day. Useful for a real person, and quietly valuable at scale. Pool a thousand free accounts and you have a renewable supply of model access that someone else pays for. That is the entire business model of a quota farm, and small tools with a generous free tier are the perfect host.</p>
   <p>The identities gave it away. Every email followed the same shape, a first name, a dot, a last name, two to four digits, at one of three big providers. The street addresses were real metros with believable postal codes. It was clean enough to pass a careless glance and patterned enough to fingerprint in one query.</p>
+</section>
+
+<section>
+  <span class="num" style="color:var(--muted)">Exhibit</span>
+  <h2>What it looked like from the inside</h2>
+  <p>Here is the payment dashboard during the wave. Every name is invented, every balance is zero, and the customer counter in the footer keeps climbing. The entry in the left rail that reads Payment Links is the door that was standing open the whole time.</p>
+  <div class="exhibit">
+    <figure class="frame" style="margin:0">
+      <div class="chrome"><i></i><i></i><i></i><span class="u">payment dashboard, customers</span></div>
+      <img src="assets/exhibit-stripe.png" alt="Payment dashboard listing synthetic customers with generated emails, zero spend each, and a footer reading 1 to 20 of 388 results" loading="lazy" width="1500" height="1182">
+    </figure>
+    <p class="cap">Captured live during the attack. Synthetic emails, zero spend, and a footer that reads 1 to 20 of 388. The company name is blurred. Nothing else is staged.</p>
+  </div>
+
+  <h3>The fingerprint, validated against the raw data</h3>
+  <p>Once the wave was stopped, the sessions the bot left behind were pulled straight from the payment processor and counted. Nothing below is an estimate. These are the numbers the raw query returned.</p>
+  <div class="facts">
+    <div class="fact"><span class="v">79 of 79</span><span class="k">captured emails matched the same generated shape, a first name, a dot, a last name, and two to four digits. A clean 100 percent.</span></div>
+    <div class="fact"><span class="v">0 paid</span><span class="k">payments across all 114 sessions. Not a single card. This was farming for free usage, not testing stolen ones.</span></div>
+    <div class="fact"><span class="v">yahoo 48%</span><span class="k">of the inboxes, with hotmail at 33 percent and gmail at 19 percent. The bot leaned on the older providers.</span></div>
+    <div class="fact"><span class="v">3s to 7m</span><span class="k">between accounts. Forty-seven arrived in rapid bursts, as little as three seconds apart. Sixty-five trickled in around seven minutes apart to slip under rate limits.</span></div>
+    <div class="fact"><span class="v">388</span><span class="k">synthetic customers created before the link was closed, every one of them flagged as United States.</span></div>
+    <div class="fact"><span class="v">no source IP</span><span class="k">the one thing the data would not give. Origin addresses live only in the processor fraud tools, not the public interface, so naming the operator needs a request, not a query.</span></div>
+  </div>
 </section>
 
 <section>
